@@ -18,6 +18,8 @@
 // You guys are geniuses.
 function hasClass(elem, theClass)
 {
+	if ( ! elem) return;
+
 	var classes = " " + elem.className + " ";
 	classes = classes.replace(/[\t\r\n]+/g, " ");
 
@@ -26,6 +28,8 @@ function hasClass(elem, theClass)
 
 function removeClass(elem, theClass)
 {
+	if ( ! elem) return;
+
 	var classes = " " + elem.className + " ";
 	classes = classes.replace(/[\t\r\n]/g, " ");
 
@@ -37,7 +41,8 @@ function removeClass(elem, theClass)
 // http://stackoverflow.com/a/196038
 function addClass(elem, theClass)
 {
-	if (!hasClass(elem, theClass)) elem.className += " " + theClass;
+	if ( ! elem) return;
+	if ( ! hasClass(elem, theClass)) elem.className += " " + theClass;
 };
 
 /**
@@ -52,14 +57,15 @@ var YTPSO = function() {
 		3: [1256, 737]
 	};
 
+	// Store the previously added class (e.g. ytpso-1280x720) so we
+	// can remove it by name later on.
+	this.previousYTPSOClass = '';
+
+	// Were we previously on a wide player?
+	this.previousWide = false;
+
 	// The container for the player, player buttons (underneath it), comments, etc.
 	this.container = document.getElementById('watch7-container');
-
-	// The container for the player itself (both, Flash and HTML5)
-	this.player = document.getElementById('player-api');
-
-	// The HTML5 player's video element
-	this.html5Player = document.getElementsByClassName('watch-stream')[0];
 
 	// The container for the buttons underneath the player
 	this.buttonContainer = document.getElementById('watch7-sentiment-actions');
@@ -101,12 +107,122 @@ YTPSO.prototype.loadSize = function()
  */
 YTPSO.prototype.init = function()
 {
+	// If the player container doesn't exist, don't continue.
+	// This can sometimes happen even though the script actually works
+	// and runs again later on. Not sure what's causing that, but this should
+	// prevent error messages about it.
+	if ( ! this.container) return;
+
 	// If we have a saved player size, use that
 	var size = this.loadSize();
 	if (size) this.setPlayerSize(this.playerSizes[size]);
 
+	// Add our class to the container
+	addClass(this.container, 'ytpso');
+
+	// Create our custom styles for the player
+	this.addStyles();
+
 	// Create and bind the buttons
 	this.addButtons();
+};
+
+YTPSO.prototype.addStyles = function()
+{
+	var styles = '';
+	for (var i in this.playerSizes) {
+		var width = this.playerSizes[i][0];
+		var height = this.playerSizes[i][1];
+
+		// We add "body" in front to give our selectors more priority
+		// than the default selectors.
+		var className = 'body .ytpso-' + width + 'x' + height;
+
+		styles += className + '{}';
+
+		// The player size
+		styles += className + ' #player-api {';
+			styles += 'width: ' + width + 'px;';
+			styles += 'height: ' + height + 'px;';
+		styles += '}';
+
+		// Make sure the tray is the right height. The video's height
+		// is the player's height minus 30 pixels and the tray's height adds
+		// three pixels to that (probably to compensate for the smaller version
+		// of the video loading/progress bar below the video (the one with the larger version
+		// that can overlap the video a bit when the video's paused and/or in focus)).
+		styles += className + ' #watch7-playlist-tray-container {';
+			styles += 'height: ' + (height - 27).toString() + 'px;';
+
+			// Make sure the playlist tray gets is always visible on the narrow player.
+			// The wider players' playlist tray styles get overriden later on.
+			styles += 'opacity: 1;';
+		styles += '}';
+
+		styles += className + ' .watch7-playlist-bar {';
+			styles += 'width: ' + width + 'px;';
+		styles += '}';
+
+	// Make sure the video managing bar is always the right width.
+	// The 40 comes from the player container width minus the bar's
+	// padding.
+	styles += className + ' #watch7-creator-bar {';
+		styles += 'width: ' + (width - 40) + 'px;';
+
+		// For some reason the area below the video managing bar broke
+		// with the largest player, so this is here to fix it. The set
+		// height on the element doesn't seem to be mandatory, because
+		// the buttons inside the bar are clearfixed.
+		styles += 'height: auto;';
+	styles += '}';
+	}
+
+	// Make it so the HTML5 player scales with its container (the "player API")
+	styles += '.ytpso .watch-stream {';
+		styles += 'width: 100%;';
+		styles += 'height: 100%;';
+		styles += 'left: 0;';
+	styles += '}';
+
+	// Some styles for wider players
+	styles += 'body .ytpso-wide {}';
+
+	// Even more selector priority here
+	// With the smaller players the playlist video list
+	// doesn't actually overlap the video but resides on
+	// the right side of it. In those cases, we let YouTube's
+	// own styles handle playlist bar's width.
+	styles += 'html body .ytpso-narrow .watch7-playlist-bar {';
+		styles += 'width: auto;';
+	styles +='}';
+
+	// Make sure the playlist tray always has the bottom border on the narrow player
+	styles += 'html body .ytpso-narrow #watch7-playlist-tray {';
+		styles += 'border-bottom: 27px solid #1B1B1B;';
+	styles += '}';
+
+	// Make sure the playlist bar toggle button is always hidden on the narrow player
+	styles += 'html body .ytpso-narrow #watch7-playlist-bar-toggle-button {';
+		styles += 'display: none;';
+	styles += '}';
+
+	// Make sure the playlist tray gets set to height 0 when it's collapsed with the wide player.
+	styles += 'html body .ytpso-wide.watch-playlist-collapsed #watch7-playlist-tray-container {';
+		styles += 'height: 0;';
+		styles += 'opacity: 0;';
+	styles += '}';
+
+	// Make sure the sidebar always stays down with the wider player(s).
+	styles += 'body .ytpso-wide #watch7-sidebar {';
+		styles += 'margin-top: 0;';
+		styles += 'padding-top: 15px;';
+	styles += '}';
+
+	var styleElement = document.createElement('style');
+	styleElement.type = 'text/css';
+	styleElement.innerHTML = styles;
+
+	document.head.appendChild(styleElement);
 };
 
 /**
@@ -171,26 +287,59 @@ YTPSO.prototype.addButtons = function()
  */
 YTPSO.prototype.setPlayerSize = function(size)
 {
-	if (!size instanceof Array || size.length != 2) return;
+	if ( ! size instanceof Array || size.length != 2) return;
 
 	// Get our sizes
 	var width  = size[0];
 	var height = size[1];
 	var useWide = (width > 640); // The wide player has some differences
 
-	if (useWide) addClass(this.container, 'watch-wide');
-	else removeClass(this.container, 'watch-wide');
+	// Remove the previous YTPSO class
+	removeClass(this.container, this.previousYTPSOClass);
 
-	// Make it so the HTML5 player scales with its container (the "player API")
-	if (this.html5Player) {
-		this.html5Player.style.width = '100%';
-		this.html5Player.style.height = '100%';
-		this.html5Player.style.left = '0';
+	// Add the custom class for our player size
+	addClass(this.container, 'ytpso-' + width + 'x' + height);
+	this.previousYTPSOClass = 'ytpso-' + width + 'x' + height;
+
+	if (useWide) {
+		// If we're transitioning from a small/narrow/"non-wide" player,
+		// hide the playlist (like YouTube does by default when switching
+		// to the bigger player).
+		if ( ! this.previousWide) {
+			addClass(this.container, 'watch-playlist-collapsed');
+		}
+
+		// Set the previousWide setting so, that we are on a wide player
+		this.previousWide = true;
+
+		// Make sure the styles for the larger player(s) are
+		// used for the larger player(s).
+		addClass(this.container, 'watch-wide watch-medium');
+
+		// Add our "wide" style/class
+		addClass(this.container, 'ytpso-wide');
+
+		// Remove our "narrow" style/class
+		removeClass(this.container, 'ytpso-narrow');
+	} else {
+		// Set the previousWide setting so, that we are on a narrow player
+		this.previousWide = false;
+
+		// With the smaller players the playlist tray is also
+		// always visible, so let's do that.
+		removeClass(this.container, 'watch-playlist-collapsed');
+
+		// Make sure the styles for the larger player(s)
+		// are not used for the smaller player.
+		removeClass(this.container, 'watch-wide');
+		removeClass(this.container, 'watch-medium');
+
+		// Add our "narrow" style/class
+		addClass(this.container, 'ytpso-narrow');
+
+		// Remove our "wide" style/class
+		removeClass(this.container, 'ytpso-wide');
 	}
-
-	// Set the player container's size
-	this.player.style.width  = width + 'px';
-	this.player.style.height = height + 'px';
 };
 
 // Create an instance of YTPSO
