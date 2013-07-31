@@ -6,7 +6,7 @@
 // @include        http://youtube.com/watch*
 // @include        https://*.youtube.com/watch*
 // @include        https://youtube.com/watch*
-// @version        2.1
+// @version        2.2
 // @grant          none
 // ==/UserScript==
 
@@ -64,7 +64,11 @@ var YTPSO = function() {
 	// Were we previously on a wide player?
 	this.previousWide = false;
 
+	// The element to place our/YTPSO's classes in
+	this.classRoot = document.body;
+
 	// The container for the player, player buttons (underneath it), comments, etc.
+	// Some of YouTube's own classes (such as watch-wide) are placed in this element.
 	this.container = document.getElementById('watch7-container');
 
 	// The container for the buttons underneath the player
@@ -136,7 +140,7 @@ YTPSO.prototype.addStyles = function()
 
 		// We add "body" in front to give our selectors more priority
 		// than the default selectors.
-		var className = 'body .ytpso-' + width + 'x' + height;
+		var className = 'body.ytpso-' + width + 'x' + height;
 
 		styles += className + '{}';
 
@@ -163,18 +167,24 @@ YTPSO.prototype.addStyles = function()
 			styles += 'width: ' + width + 'px;';
 		styles += '}';
 
-	// Make sure the video managing bar is always the right width.
-	// The 40 comes from the player container width minus the bar's
-	// padding.
-	styles += className + ' #watch7-creator-bar {';
-		styles += 'width: ' + (width - 40) + 'px;';
+		// Make sure the video managing bar is always the right width.
+		// The 40 comes from the player container width minus the bar's
+		// padding.
+		styles += className + ' #watch7-creator-bar {';
+			styles += 'width: ' + (width - 40) + 'px;';
 
-		// For some reason the area below the video managing bar broke
-		// with the largest player, so this is here to fix it. The set
-		// height on the element doesn't seem to be mandatory, because
-		// the buttons inside the bar are clearfixed.
-		styles += 'height: auto;';
-	styles += '}';
+			// For some reason the area below the video managing bar broke
+			// with the largest player, so this is here to fix it. The set
+			// height on the element doesn't seem to be mandatory, because
+			// the buttons inside the bar are clearfixed.
+			styles += 'height: auto;';
+		styles += '}';
+
+		// With the new centered layout, we also sometimes need to increase #content's width
+		// if the player's width is over the default #content width to keep the player in the center.
+		styles += className + ' #content {';
+			styles += 'width: ' + (Math.max(1003, width)) + 'px;';
+		styles += '}';
 	}
 
 	// Make it so the HTML5 player scales with its container (the "player API")
@@ -185,35 +195,35 @@ YTPSO.prototype.addStyles = function()
 	styles += '}';
 
 	// Some styles for wider players
-	styles += 'body .ytpso-wide {}';
+	styles += 'body.ytpso-wide {}';
 
 	// Even more selector priority here
 	// With the smaller players the playlist video list
 	// doesn't actually overlap the video but resides on
 	// the right side of it. In those cases, we let YouTube's
 	// own styles handle playlist bar's width.
-	styles += 'html body .ytpso-narrow .watch7-playlist-bar {';
+	styles += 'html body.ytpso-narrow .watch7-playlist-bar {';
 		styles += 'width: auto;';
 	styles +='}';
 
 	// Make sure the playlist tray always has the bottom border on the narrow player
-	styles += 'html body .ytpso-narrow #watch7-playlist-tray {';
+	styles += 'html body.ytpso-narrow #watch7-playlist-tray {';
 		styles += 'border-bottom: 27px solid #1B1B1B;';
 	styles += '}';
 
 	// Make sure the playlist bar toggle button is always hidden on the narrow player
-	styles += 'html body .ytpso-narrow #watch7-playlist-bar-toggle-button {';
+	styles += 'html body.ytpso-narrow #watch7-playlist-bar-toggle-button {';
 		styles += 'display: none;';
 	styles += '}';
 
 	// Make sure the playlist tray gets set to height 0 when it's collapsed with the wide player.
-	styles += 'html body .ytpso-wide.watch-playlist-collapsed #watch7-playlist-tray-container {';
+	styles += 'html body.ytpso-wide .watch-playlist-collapsed #watch7-playlist-tray-container {';
 		styles += 'height: 0;';
 		styles += 'opacity: 0;';
 	styles += '}';
 
 	// Make sure the sidebar always stays down with the wider player(s).
-	styles += 'body .ytpso-wide #watch7-sidebar {';
+	styles += 'body.ytpso-wide #watch7-sidebar {';
 		styles += 'margin-top: 0;';
 		styles += 'padding-top: 15px;';
 	styles += '}';
@@ -295,10 +305,10 @@ YTPSO.prototype.setPlayerSize = function(size)
 	var useWide = (width > 640); // The wide player has some differences
 
 	// Remove the previous YTPSO class
-	removeClass(this.container, this.previousYTPSOClass);
+	removeClass(this.classRoot, this.previousYTPSOClass);
 
 	// Add the custom class for our player size
-	addClass(this.container, 'ytpso-' + width + 'x' + height);
+	addClass(this.classRoot, 'ytpso-' + width + 'x' + height);
 	this.previousYTPSOClass = 'ytpso-' + width + 'x' + height;
 
 	if (useWide) {
@@ -317,10 +327,10 @@ YTPSO.prototype.setPlayerSize = function(size)
 		addClass(this.container, 'watch-wide watch-medium');
 
 		// Add our "wide" style/class
-		addClass(this.container, 'ytpso-wide');
+		addClass(this.classRoot, 'ytpso-wide');
 
 		// Remove our "narrow" style/class
-		removeClass(this.container, 'ytpso-narrow');
+		removeClass(this.classRoot, 'ytpso-narrow');
 	} else {
 		// Set the previousWide setting so, that we are on a narrow player
 		this.previousWide = false;
@@ -335,10 +345,10 @@ YTPSO.prototype.setPlayerSize = function(size)
 		removeClass(this.container, 'watch-medium');
 
 		// Add our "narrow" style/class
-		addClass(this.container, 'ytpso-narrow');
+		addClass(this.classRoot, 'ytpso-narrow');
 
 		// Remove our "wide" style/class
-		removeClass(this.container, 'ytpso-wide');
+		removeClass(this.classRoot, 'ytpso-wide');
 	}
 };
 
