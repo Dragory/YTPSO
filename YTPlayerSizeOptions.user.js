@@ -6,7 +6,7 @@
 // @include        http://youtube.com/watch*
 // @include        https://*.youtube.com/watch*
 // @include        https://youtube.com/watch*
-// @version        2.2
+// @version        2.21
 // @grant          none
 // ==/UserScript==
 
@@ -54,7 +54,7 @@ var YTPSO = function() {
 		//  x     y
 		1: [640,  390],
 		2: [854,  510],
-		3: [1256, 737]
+		3: [1280, 750]
 	};
 
 	// Store the previously added class (e.g. ytpso-1280x720) so we
