@@ -137,12 +137,22 @@
 			try {
 				self.initialize();
 
+				window.yt.pubsub.instance_.subscribe('player-added', function() {
+					if (firstLoad) {
+						firstLoad = false;
+						return true;
+					}
+
+					self.initialize();
+					return true;
+				});
+
 				window.yt.pubsub.instance_.subscribe('init-watch', function() {
 					self.initialize();
 					return true;
 				});
 			} catch (e) {
-				console.log('[YTPSO] Could not subscribe to the init-watch event. Initializing only on initial page load.');
+				console.log('[YTPSO] Could not subscribe to the player-added or init-watch event. Initializing only on initial page load.');
 				self.initialize();
 			}
 		};
