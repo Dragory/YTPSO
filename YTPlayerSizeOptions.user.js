@@ -6,7 +6,7 @@
 // @include        http://youtube.com/watch*
 // @include        https://*.youtube.com/watch*
 // @include        https://youtube.com/watch*
-// @version        2.4.3
+// @version        2.4.4
 // ==/UserScript==
 
 (function() {
@@ -132,23 +132,33 @@
 			// Make sure we reinitialize YTPSO when YouTube loads
 			// a new video via AJAX. This doesn't apply
 			// to the stylesheets which stay even when navigating.
-			var firstLoad = true;
+			var hasInitialized = false;
+
+			var attemptInitializing = function() {
+				if (hasInitialized) {
+					return true;
+				}
+
+				self.initialize();
+				hasInitialized = true;
+			};
 
 			try {
-				self.initialize();
+				attemptInitializing();
+
+				// Reset the initialization on AJAX navigation
+				window.yt.pubsub.instance_.subscribe('navigate', function() {
+					hasInitialized = false;
+					return true;
+				});
 
 				window.yt.pubsub.instance_.subscribe('player-added', function() {
-					if (firstLoad) {
-						firstLoad = false;
-						return true;
-					}
-
-					self.initialize();
+					attemptInitializing();
 					return true;
 				});
 
 				window.yt.pubsub.instance_.subscribe('init-watch', function() {
-					self.initialize();
+					attemptInitializing();
 					return true;
 				});
 			} catch (e) {
