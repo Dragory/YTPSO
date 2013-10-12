@@ -6,7 +6,7 @@
 // @include        http://youtube.com/watch*
 // @include        https://*.youtube.com/watch*
 // @include        https://youtube.com/watch*
-// @version        2.4.2
+// @version        2.4.3
 // ==/UserScript==
 
 (function() {
@@ -137,17 +137,12 @@
 			try {
 				self.initialize();
 
-				window.yt.pubsub.instance_.subscribe('player-added', function() {
-					if (firstLoad) {
-						firstLoad = false;
-						return true;
-					}
-
+				window.yt.pubsub.instance_.subscribe('init-watch', function() {
 					self.initialize();
 					return true;
 				});
 			} catch (e) {
-				console.log('[YTPSO] Could not subscribe to the player-added event. Initializing only on initial page load.');
+				console.log('[YTPSO] Could not subscribe to the init-watch event. Initializing only on initial page load.');
 				self.initialize();
 			}
 		};
