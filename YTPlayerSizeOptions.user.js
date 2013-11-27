@@ -6,7 +6,7 @@
 // @include        http://youtube.com/watch*
 // @include        https://*.youtube.com/watch*
 // @include        https://youtube.com/watch*
-// @version        2.4.4
+// @version        2.4.5
 // ==/UserScript==
 
 (function() {
@@ -303,10 +303,20 @@
 			}
 
 			/**
+			 * The HTML5 video element that for some reason now has inline styles for width and height(?)
+			 */
+
+			styles += '.html5-main-video {';
+				styles += 'width: 100% !important;';
+				styles += 'height: 100% !important;';
+			styles += '}';
+
+			/**
 			 * General fixes for differences between narrow and wide players.
 			 */
 
 			// Make it so the HTML5 player scales with its container (the "player API")
+			// NOTE: THIS MAY BE DEPRECATED
 			styles += '.ytpso .watch-stream {';
 				styles += 'width: 100%;';
 				styles += 'height: 100%;';
