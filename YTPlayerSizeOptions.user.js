@@ -309,8 +309,8 @@
 			styles += '.html5-main-video {';
 				styles += 'width: 100% !important;';
 				styles += 'height: 100% !important;';
-				styles += 'left: 0;';
-				styles += 'top: 0;';
+				styles += 'left: 0 !important;';
+				styles += 'top: 0 !important;';
 			styles += '}';
 
 			/**
