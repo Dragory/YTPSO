@@ -6,7 +6,7 @@
 // @include        http://youtube.com/watch*
 // @include        https://*.youtube.com/watch*
 // @include        https://youtube.com/watch*
-// @version        2.4.5
+// @version        2.4.6
 // ==/UserScript==
 
 (function() {
