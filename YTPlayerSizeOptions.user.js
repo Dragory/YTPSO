@@ -6,7 +6,7 @@
 // @include        http://youtube.com/watch*
 // @include        https://*.youtube.com/watch*
 // @include        https://youtube.com/watch*
-// @version        2.4.6
+// @version        2.4.7
 // ==/UserScript==
 
 (function() {
@@ -227,13 +227,28 @@
 
 				styles += className + '{}';
 
+				// Page and player container in Feather
+				var featherPageContainerWidth = Math.max(960, width);
+				var featherPlayerContainerWidth = width;
+
+				styles += className + ' #ct {';
+					styles += 'width: ' + featherPageContainerWidth + 'px;';
+				styles += '}';
+
+				styles += className + ' #lc {';
+					styles += 'width: ' + featherPlayerContainerWidth + 'px;';
+				styles += '}';
+
 				// The player's container's width
-				styles += className + ' #player, ' + className + '.cardified-page #player {';
+				styles += className + ' #player,';                  // Default
+				styles += className + ' .cardified-page #player {'; // "Cardified" theme
 					styles += 'width: ' + playerAreaWidth + 'px;';
 				styles += '}';
 
 				// The player size
-				styles += className + ' #player-api, ' + className + ' #player-api-legacy {';
+				styles += className + ' #player-api,';         // Default
+				styles += className + ' #player-api-legacy,';  // "Legacy"
+				styles += className + ' #p {';                 // Feather
 					styles += 'width: ' + width + 'px;';
 					styles += 'height: ' + height + 'px;';
 				styles += '}';
@@ -372,6 +387,18 @@
 			styles += '}';
 
 			/**
+			 * YTPSO buttons in Feather
+			 */
+			
+			styles += '#vo #ytpso-buttons {';
+				styles += 'margin-left: 10px;';
+			styles += '}';
+
+			styles += '#vo #ytpso-buttons .b {';
+				styles += 'margin: 0 8px 0 0;';
+			styles += '}';
+
+			/**
 			 * Create the style element and append it to head
 			 */
 
@@ -387,50 +414,82 @@
 		 */
 		YTPSO.prototype.addButtons = function()
 		{
+			// Are we on the default YT page or on the feather version?
+			var featherButtonContainer = document.getElementById('vo');
+
+			if (featherButtonContainer !== null) { // Feather
+				this.addFeatherButtons();
+			} else { // Default
+				this.addDefaultButtons();
+			}
+		};
+
+		/**
+		 * Adds the size control buttons on the default YT page (non-feather).
+		 */
+		YTPSO.prototype.addDefaultButtons = function() {
 			var self = this;
+			var buttonContainer = this.buttonContainer;
 
-			// The container for YTPSO buttons
-			var but_container = document.createElement('span');
-			but_container.setAttribute('id', 'ytpso-buttons');
+			var ytpsoButtonContainer = document.createElement('span');
+			ytpsoButtonContainer.id = 'ytpso-buttons';
 
-			// Small player button
-			var but_s = document.createElement('button');;
-			but_s.setAttribute('class', 'yt-uix-button yt-uix-button-text');
-			but_s.innerHTML = 'S';
+			var createButton = function(label, size) {
+				var but = document.createElement('button');
+				but.className = 'yt-uix-button yt-uix-button-text';
+				but.innerHTML = label;
 
-			but_s.onclick = function() {
-				self.setPlayerSize(self.playerSizes[1]);
-				self.saveSize(1);
+				but.onclick = function() {
+					self.setPlayerSize(self.playerSizes[size]);
+					self.saveSize(size);
+				};
+
+				return but;
 			};
 
-			but_container.appendChild(but_s);
+			var but_s = createButton('S', 1);
+			var but_m = createButton('M', 2);
+			var but_l = createButton('L', 3);
 
-			// Medium player button
-			var but_m = document.createElement('button');;
-			but_m.setAttribute('class', 'yt-uix-button yt-uix-button-text');
-			but_m.innerHTML = 'M';
+			ytpsoButtonContainer.appendChild(but_s);
+			ytpsoButtonContainer.appendChild(but_m);
+			ytpsoButtonContainer.appendChild(but_l);
 
-			but_m.onclick = function() {
-				self.setPlayerSize(self.playerSizes[2]);
-				self.saveSize(2);
+			buttonContainer.appendChild(ytpsoButtonContainer);
+		};
+
+		/**
+		 * Adds the size control buttons on the YT Feather page.
+		 */
+		YTPSO.prototype.addFeatherButtons = function() {
+			var self = this;
+			var featherButtonContainer = document.getElementById('vo');
+
+			var ytpsoButtonContainer = document.createElement('span');
+			ytpsoButtonContainer.id = 'ytpso-buttons';
+
+			var createButton = function(label, size) {
+				var but = document.createElement('button');
+				but.className = 'b';
+				but.innerHTML = label;
+
+				but.onclick = function() {
+					self.setPlayerSize(self.playerSizes[size]);
+					self.saveSize(size);
+				};
+
+				return but;
 			};
 
-			but_container.appendChild(but_m);
+			var but_s = createButton('S', 1);
+			var but_m = createButton('M', 2);
+			var but_l = createButton('L', 3);
 
-			// Large player button
-			var but_l = document.createElement('button');;
-			but_l.setAttribute('class', 'yt-uix-button yt-uix-button-text');
-			but_l.innerHTML = 'L';
+			ytpsoButtonContainer.appendChild(but_s);
+			ytpsoButtonContainer.appendChild(but_m);
+			ytpsoButtonContainer.appendChild(but_l);
 
-			but_l.onclick = function() {
-				self.setPlayerSize(self.playerSizes[3]);
-				self.saveSize(3);
-			};
-
-			but_container.appendChild(but_l);
-
-			// Add the buttons on the page
-			this.buttonContainer.appendChild(but_container);
+			featherButtonContainer.appendChild(ytpsoButtonContainer);
 		};
 
 		/**
