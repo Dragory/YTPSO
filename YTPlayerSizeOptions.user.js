@@ -30,8 +30,8 @@
 		{
 			if ( ! elem) return;
 
-			var classes = " " + elem.className + " ";
-			classes = classes.replace(/[\t\r\n]+/g, " ");
+			var classes = (" " + elem.className + " ")
+				.replace(/[\t\r\n]+/g, " ");
 
 			return classes.indexOf(" " + theClass + " ") >= 0;
 		};
@@ -40,10 +40,9 @@
 		{
 			if ( ! elem) return;
 
-			var classes = " " + elem.className + " ";
-			classes = classes.replace(/[\t\r\n]/g, " ");
-
-			classes = classes.replace(" " + theClass + " ", " ");
+			var classes = (" " + elem.className + " ")
+				.replace(/[\t\r\n]/g, " ") // Remove excess whitespace
+				.replace(" " + theClass + " ", " "); // Remove the class
 
 			elem.className = classes.trim();
 		};
@@ -66,10 +65,6 @@
 				2: [854,  510],
 				3: [1280, 750]
 			};
-
-			// Playlist tray min/max widths
-			this.playlistTrayMaxWidth = 400;
-			this.playlistTrayMinWidth = 275;
 
 			// Store the previously added class (e.g. ytpso-1280x720) so we
 			// can remove it by name later on.
@@ -201,6 +196,48 @@
 		};
 
 		/**
+		 * Calculates a new position for an annotation.
+		 * Not used yet, gotta look more into how the annotations are handled in the HTML5 player.
+		 *
+		 * @param  {String}  originalPlayerName  Class name of the player, e.g. watch-medium or watch-large
+		 * @param  {Int}     newWidth            The "new" (set by YTPSO) width of the player
+		 * @param  {Int}     newHeight           The "new" (set by YTPSO) height of the player
+		 * @param  {Int}     annotationX         The current X coordinate of the annotation
+		 * @param  {Int}     annotationY         The current Y coordinate of the annotation
+		 *
+		 * @return  {Array}  An array with the new X at [0] and new Y at [1]
+		 */
+		YTPSO.prototype.calculateAnnotationPosition = function(originalPlayerName, newWidth, newHeight, annotationX, annotationY)
+		{
+			var originalPlayerWidth,
+				originalPlayerHeight,
+				newX,
+				newY;
+
+			switch (originalPlayerName) {
+				case 'watch-medium':
+					originalPlayerWidth = 854;
+					originalPlayerHeight = 480;
+					break;
+
+				case 'watch-large':
+					originalPlayerWidth = 1280;
+					originalPlayerHeight = 720;
+					break;
+
+				default:
+					originalPlayerWidth = 640;
+					originalPlayerHeight = 360;
+					break;
+			}
+
+			newX = (newWidth / originalPlayerWidth * annotationX);
+			newY = (newHeight / originalPlayerHeight * annotationY);
+
+			return [newX, newY];
+		};
+
+		/**
 		 * Builds our stylesheet and adds it on the page.
 		 */
 		YTPSO.prototype.addStyles = function()
@@ -212,108 +249,49 @@
 			 */
 			
 			for (var i in this.playerSizes) {
-				var width = this.playerSizes[i][0];
-				var height = this.playerSizes[i][1];
-				var isNarrow = (width <= this.narrowLimit);
+				var playerWidth = this.playerSizes[i][0],
+					playerHeight = this.playerSizes[i][1],
+					videoWidth = playerWidth,
+					videoHeight = playerHeight - 30, // 30 i.e. the video controls' height
+					isNarrow = (playerWidth <= this.narrowLimit),
+					ytpsoSelector = '.ytpso-' + playerWidth + 'x' + playerHeight;
 
-				// The player AREA's width. This is the part that's centered.
+				// The player's container's width. This is the part that's centered.
 				// The small player isn't centered by itself, as the sidebar
 				// also takes some space on the side.
-				var playerAreaWidth = Math.max(1003, width);
-
-				// We add "body" in front to give our selectors more priority
-				// than the default selectors.
-				var className = 'body.ytpso-' + width + 'x' + height;
-
-				styles += className + '{}';
+				var playerContainerWidth = Math.max(1040, playerWidth);
 
 				// Page and player container in Feather
-				var featherPageContainerWidth = Math.max(960, width);
-				var featherPlayerContainerWidth = width;
+				var featherPageContainerWidth = Math.max(960, playerWidth),
+					featherPlayerContainerWidth = playerWidth;
 
-				styles += className + ' #ct {';
+				styles += ytpsoSelector + ' #ct {';
 					styles += 'width: ' + featherPageContainerWidth + 'px;';
 				styles += '}';
 
-				styles += className + ' #lc {';
+				styles += ytpsoSelector + ' #lc {';
 					styles += 'width: ' + featherPlayerContainerWidth + 'px;';
 				styles += '}';
 
-				// The player's container's width
-				styles += className + ' #player,';                  // Default
-				styles += className + ' .cardified-page #player {'; // "Cardified" theme
-					styles += 'width: ' + playerAreaWidth + 'px;';
+				// Player container width
+				styles += ytpsoSelector + ' #player,';                  // Default
+				styles += ytpsoSelector + ' .cardified-page #player {'; // "Cardified" theme
+					styles += 'width: ' + playerContainerWidth + 'px !important;';
+					styles += 'max-width: ' + playerContainerWidth + 'px !important;';
 				styles += '}';
 
-				// The player size
-				styles += className + ' #player-api,';         // Default
-				styles += className + ' #player-api-legacy,';  // "Legacy"
-				styles += className + ' #p {';                 // Feather
-					styles += 'width: ' + width + 'px;';
-					styles += 'height: ' + height + 'px;';
+				// Player width/height
+				styles += ytpsoSelector + ' #player-api,';         // Default
+				styles += ytpsoSelector + ' #player-api-legacy,';  // "Legacy"
+				styles += ytpsoSelector + ' #p {';                 // Feather
+					styles += 'width: ' + playerWidth + 'px;';
+					styles += 'height: ' + playerHeight + 'px;';
 				styles += '}';
 
-				// Adjust the playlist bar's width
-				var playlistTrayWidth = 0.32 * width;
-				playlistTrayWidth = Math.min(this.playlistTrayMaxWidth, playlistTrayWidth);
-				playlistTrayWidth = Math.max(this.playlistTrayMinWidth, playlistTrayWidth);
-				playlistTrayWidth = Math.floor(playlistTrayWidth);
-
-				var playlistBarTitleWidth = width - playlistTrayWidth;
-
-				if (isNarrow) {
-					// On narrow players, the left side of the playlist bar (containing the playlist name etc.)
-					// should be as wide as the player itself (because the playlist tray's on the side, not on the player).
-					styles += className + ' .watch7-playlist-bar-left {';
-						styles += 'width: ' + width + 'px;';
-					styles += '}';
-				} else {
-					styles += className + ' .watch7-playlist-bar {';
-						styles += 'width: ' + width + 'px;';
-					styles += '}';
-					styles += className + ' .watch7-playlist-bar-left {';
-						styles += 'width: ' + playlistBarTitleWidth + 'px;';
-					styles += '}';
-					styles += className + ' .watch-sidebar {';
-						styles += 'width: ' + playlistTrayWidth + 'px;';
-					styles += '}';
-				}
-				
-				// Before we also applied this style to watch7-playlist-bar-right,
-				// but the element which has that class also has .watch-sidebar so we don't have to.
-
-				// The playlist tray should be as high as the player
-				styles += className + ' #watch7-playlist-tray-container {';
-					styles += 'height: ' + height + 'px;';
-
-					// Make sure the playlist tray gets is always visible on the narrow player.
-					// The wider players' playlist tray styles get overriden later on.
-					styles += 'opacity: 1;';
-
-					// If the player is not narrow, move the tray to the right side of the player.
-					// On narrow players the tray is not on the player but next to it (so we don't need to move it).
-					if ( ! isNarrow) {
-						styles += 'left: ' + playlistBarTitleWidth + 'px;';
-					}
-				styles += '}';
-
-				// Make sure the video managing bar is always the right width.
-				// The 40 comes from the player container width minus the bar's
-				// padding.
-				styles += className + ' #watch7-creator-bar {';
-					styles += 'width: ' + (width - 40) + 'px;';
-
-					// For some reason the area below the video managing bar broke
-					// with the largest player, so this is here to fix it. The set
-					// height on the element doesn't seem to be mandatory, because
-					// the buttons inside the bar are clearfixed.
-					styles += 'height: auto;';
-				styles += '}';
-
-				// With the new centered layout, we also sometimes need to increase #content's width
-				// if the player's width is over the default #content width to keep the player in the center.
-				styles += className + ' #content {';
-					styles += 'width: ' + playerAreaWidth + 'px;';
+				// HTML5 video's annotations etc.
+				styles += ytpsoSelector + ' .html5-video-content {';
+					styles += 'width: ' + videoWidth + 'px !important;';
+					styles += 'height: ' + videoHeight + 'px !important;';
 				styles += '}';
 			}
 
@@ -326,64 +304,6 @@
 				styles += 'height: 100% !important;';
 				styles += 'left: 0 !important;';
 				styles += 'top: 0 !important;';
-			styles += '}';
-
-			/**
-			 * General fixes for differences between narrow and wide players.
-			 */
-
-			// Make it so the HTML5 player scales with its container (the "player API")
-			// NOTE: THIS MAY BE DEPRECATED
-			styles += '.ytpso .watch-stream {';
-				styles += 'width: 100%;';
-				styles += 'height: 100%;';
-				styles += 'left: 0;';
-			styles += '}';
-
-			// Some styles for wider players
-			styles += 'body.ytpso-wide {}';
-
-			/**
-			 * The playlist bar and its parts
-			 */
-			styles += 'html body.ytpso-narrow .watch7-playlist-bar {';
-				styles += 'width: auto;';
-			styles += '}';
-
-			styles += 'html body.ytpso-narrow .watch-sidebar {';
-				styles += 'width: auto;';
-			styles +='}';
-
-			/**
-			 * The playlist tray toggle button
-			 */
-			
-			styles += 'html body.ytpso-wide #watch7-playlist-bar-toggle-button {';
-				styles += 'display: inline;';
-			styles +='}';
-
-			styles += 'html body.ytpso-narrow #watch7-playlist-bar-toggle-button {';
-				styles += 'display: none;';
-			styles +='}';
-
-			/**
-			 * The playlist tray container
-			 */
-			
-			// Larger players -> tray container has an absolute position (so it stays on the player)
-			styles += 'html body.ytpso-wide #watch7-playlist-tray-container {';
-				styles += 'position: absolute;';
-			styles += '}';
-
-			// Small player -> tray container has a relative position (so it getes pushed beyond the player).
-			styles += 'html body.ytpso-narrow #watch7-playlist-tray-container {';
-				styles += 'position: relative;';
-			styles += '}';
-
-			// Make sure the tray container gets set to height 0 when it's collapsed with the wide player.
-			styles += 'html body.ytpso-wide .watch-playlist-collapsed #watch7-playlist-tray-container {';
-				styles += 'height: 0;';
-				styles += 'opacity: 0;';
 			styles += '}';
 
 			/**
@@ -411,6 +331,7 @@
 
 		/**
 		 * Adds the video player size control buttons underneath the player.
+		 * Determines whether to add default or feather buttons.
 		 */
 		YTPSO.prototype.addButtons = function()
 		{
@@ -501,10 +422,18 @@
 		{
 			if ( ! size instanceof Array || size.length != 2) return;
 
-			// Get our sizes
-			var width  = size[0];
-			var height = size[1];
-			var useWide = (width > 640); // The wide player has some differences
+			var width = size[0],
+				height = size[1],
+				isWide = (width > 640),
+				playerYTClass;
+
+			if (width < 854) {
+				playerYTClass = 'watch-small';
+			} else if (width < 1280) {
+				playerYTClass = 'watch-medium';
+			} else {
+				playerYTClass = 'watch-large';
+			}
 
 			// Remove the previous YTPSO class
 			removeClass(this.classRoot, this.previousYTPSOClass);
@@ -513,49 +442,22 @@
 			addClass(this.classRoot, 'ytpso-' + width + 'x' + height);
 			this.previousYTPSOClass = 'ytpso-' + width + 'x' + height;
 
-			if (useWide) {
-				// If we're transitioning from a small/narrow/"non-wide" player,
-				// hide the playlist (like YouTube does by default when switching
-				// to the bigger player).
-				if ( ! this.previousWide) {
-					addClass(this.legacyPlayer, 'watch-playlist-collapsed');
-					addClass(this.player, 'watch-playlist-collapsed');
-				}
+			// Set #player's class to the closest default YT one for compatibility with e.g. annotations.
+			removeClass(this.player, 'watch-small');
+			removeClass(this.player, 'watch-medium');
+			removeClass(this.player, 'watch-large');
+			addClass(this.player, playerYTClass);
 
-				// Set the previousWide setting so, that we are on a wide player
-				this.previousWide = true;
+			if (isWide) {
+				removeClass(this.player, 'watch-playlist');
+				addClass(this.player, 'watch-playlist-collapsed');
 
-				// Make sure the styles for the larger player(s) are
-				// used for the larger player(s).
 				addClass(this.container, 'watch-wide');
-				addClass(this.legacyPlayer, 'watch-medium');
-				addClass(this.player, 'watch-medium');
-
-				// Add our "wide" style/class
-				addClass(this.classRoot, 'ytpso-wide');
-
-				// Remove our "narrow" style/class
-				removeClass(this.classRoot, 'ytpso-narrow');
 			} else {
-				// Set the previousWide setting so, that we are on a narrow player
-				this.previousWide = false;
-
-				// With the smaller players the playlist tray is also
-				// always visible, so let's do that.
-				removeClass(this.legacyPlayer, 'watch-playlist-collapsed');
 				removeClass(this.player, 'watch-playlist-collapsed');
+				addClass(this.player, 'watch-playlist');
 
-				// Make sure the styles for the larger player(s)
-				// are not used for the smaller player.
 				removeClass(this.container, 'watch-wide');
-				removeClass(this.legacyPlayer, 'watch-medium');
-				removeClass(this.player, 'watch-medium');
-
-				// Add our "narrow" style/class
-				addClass(this.classRoot, 'ytpso-narrow');
-
-				// Remove our "wide" style/class
-				removeClass(this.classRoot, 'ytpso-wide');
 			}
 		};
 
