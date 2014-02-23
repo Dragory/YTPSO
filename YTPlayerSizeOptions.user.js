@@ -2,11 +2,9 @@
 // @name           YouTube Player Size Options
 // @namespace      http://www.mivir.fi/
 // @description    Adds three options for YouTube's player size: 360p (S), 480p (M) and 720p (L).
-// @include        http://*.youtube.com/watch*
-// @include        http://youtube.com/watch*
-// @include        https://*.youtube.com/watch*
-// @include        https://youtube.com/watch*
-// @version        2.5.0
+// @include        *://www.youtube.com/*
+// @version        2.5.1
+// @grant          none
 // ==/UserScript==
 
 (function() {
@@ -66,25 +64,24 @@
 				3: [1280, 750]
 			};
 
-			// Store the previously added class (e.g. ytpso-1280x720) so we
-			// can remove it by name later on.
+			this.currentPlayerSize = [0, 0];
+
+			// Store the previously added class (e.g. ytpso-1280x720) so we can remove it by name later on.
 			this.previousYTPSOClass = '';
 
-			// Were we previously on a wide player?
-			this.previousWide = false;
-
-			// The element to place our/YTPSO's classes in
+			// The element to place YTPSO's classes in
 			this.classRoot = document.body;
 
-			// These will be set along with initialization
-			this.container = null;
-			this.player = null;
-			this.legacyPlayer = null;
-			this.buttonContainer = null;
+			// YouTube's elements, will be set ASAP
+			this.ytElems = {
+				player: null,
+				container: null,
+				buttonContainer: null
+			};
 
-			// The player width at which the player is not
-			// narrow anymore.
-			this.narrowLimit = 640;
+			this.ownElems = {
+				buttons: null
+			};
 		};
 
 		/**
@@ -119,28 +116,24 @@
 		 */
 		YTPSO.prototype.handleInitializationTiming = function()
 		{
-			var self = this;
+			var self = this,
+				hasInitialized = false,
+				attemptInitializing;
 
-			// Create our custom styles for the player
 			this.addStyles();
 
-			// Make sure we reinitialize YTPSO when YouTube loads
-			// a new video via AJAX. This doesn't apply
-			// to the stylesheets which stay even when navigating.
-			var hasInitialized = false;
-
-			var attemptInitializing = function() {
+			attemptInitializing = function() {
 				if (hasInitialized) {
-					return true;
+					return;
 				}
 
 				self.initialize();
 				hasInitialized = true;
 			};
+				
+			attemptInitializing();
 
 			try {
-				attemptInitializing();
-
 				// Reset the initialization on AJAX navigation
 				window.yt.pubsub.instance_.subscribe('navigate', function() {
 					hasInitialized = false;
@@ -156,9 +149,13 @@
 					attemptInitializing();
 					return true;
 				});
+
+				window.yt.pubsub.instance_.subscribe('player-playback-start', function() {
+					self.setPlayerClass();
+					return true;
+				});
 			} catch (e) {
 				console.log('[YTPSO] Could not subscribe to the player-added or init-watch event. Initializing only on initial page load.');
-				self.initialize();
 			}
 		};
 
@@ -167,18 +164,16 @@
 		 */
 		YTPSO.prototype.initialize = function()
 		{
-			// The container for the player, player buttons (underneath it), comments, etc.
-			// Some of YouTube's own classes (such as watch-wide) are placed in this element.
-			this.container = document.getElementById('watch7-container');
+			// Container for content under the player. Gets the watch-wide class when needed.
+			this.ytElems.container = document.getElementById('watch7-container');
 
-			// The watch-medium class also gets added to #player and/or #player-legacy
-			this.player = document.getElementById('player');
-			this.legacyPlayer = document.getElementById('player-legacy');
+			// Container for the player. Gets the watch-medium and similar classes depending on player size.
+			this.ytElems.player = document.getElementById('player');
 
-			// The container for the buttons underneath the player
-			this.buttonContainer = document.getElementById('watch7-sentiment-actions');
+			// Container for like, dislike etc. buttons under the player.
+			this.ytElems.buttonContainer = document.getElementById('watch7-sentiment-actions');
 
-			addClass(this.container, 'ytpso');
+			addClass(this.classRoot, 'ytpso');
 
 			this.setInitialSize();
 			this.addButtons();
@@ -329,18 +324,41 @@
 			document.head.appendChild(styleElement);
 		};
 
+		YTPSO.prototype.checkAndSaveButtonContainer = function() {
+			if (this.ytElems.buttonContainer !== null) {
+				return true;
+			}
+
+			var toCheck = ['watch7-sentiment-actions', 'vo'],
+				i,
+				len,
+				elem;
+
+			for (i = 0, len = toCheck.length; i < len; i++) {
+				elem = document.getElementById(toCheck[i]);
+
+				if (elem !== null) {
+					this.ytElems.buttonContainer = elem;
+					return true;
+				}
+			}
+
+			return false;
+		};
+
 		/**
 		 * Adds the video player size control buttons underneath the player.
 		 * Determines whether to add default or feather buttons.
 		 */
 		YTPSO.prototype.addButtons = function()
 		{
-			// Are we on the default YT page or on the feather version?
-			var featherButtonContainer = document.getElementById('vo');
+			if ( ! this.checkAndSaveButtonContainer()) {
+				return;
+			}
 
-			if (featherButtonContainer !== null) { // Feather
+			if (document.getElementById('vo')) {
 				this.addFeatherButtons();
-			} else { // Default
+			} else {
 				this.addDefaultButtons();
 			}
 		};
@@ -350,10 +368,9 @@
 		 */
 		YTPSO.prototype.addDefaultButtons = function() {
 			var self = this;
-			var buttonContainer = this.buttonContainer;
 
-			var ytpsoButtonContainer = document.createElement('span');
-			ytpsoButtonContainer.id = 'ytpso-buttons';
+			this.ownElems.buttons = document.createElement('span');
+			this.ownElems.buttons.id = 'ytpso-buttons';
 
 			var createButton = function(label, size) {
 				var but = document.createElement('button');
@@ -372,11 +389,11 @@
 			var but_m = createButton('M', 2);
 			var but_l = createButton('L', 3);
 
-			ytpsoButtonContainer.appendChild(but_s);
-			ytpsoButtonContainer.appendChild(but_m);
-			ytpsoButtonContainer.appendChild(but_l);
+			this.ownElems.buttons.appendChild(but_s);
+			this.ownElems.buttons.appendChild(but_m);
+			this.ownElems.buttons.appendChild(but_l);
 
-			buttonContainer.appendChild(ytpsoButtonContainer);
+			this.ytElems.buttonContainer.appendChild(this.ownElems.buttons);
 		};
 
 		/**
@@ -386,8 +403,8 @@
 			var self = this;
 			var featherButtonContainer = document.getElementById('vo');
 
-			var ytpsoButtonContainer = document.createElement('span');
-			ytpsoButtonContainer.id = 'ytpso-buttons';
+			this.ownElems.buttons = document.createElement('span');
+			this.ownElems.buttons.id = 'ytpso-buttons';
 
 			var createButton = function(label, size) {
 				var but = document.createElement('button');
@@ -406,11 +423,11 @@
 			var but_m = createButton('M', 2);
 			var but_l = createButton('L', 3);
 
-			ytpsoButtonContainer.appendChild(but_s);
-			ytpsoButtonContainer.appendChild(but_m);
-			ytpsoButtonContainer.appendChild(but_l);
+			this.ownElems.buttons.appendChild(but_s);
+			this.ownElems.buttons.appendChild(but_m);
+			this.ownElems.buttons.appendChild(but_l);
 
-			featherButtonContainer.appendChild(ytpsoButtonContainer);
+			featherButtonContainer.appendChild(this.ownElems.buttons);
 		};
 
 		/**
@@ -424,16 +441,9 @@
 
 			var width = size[0],
 				height = size[1],
-				isWide = (width > 640),
-				playerYTClass;
+				isWide = (width > 640);
 
-			if (width < 854) {
-				playerYTClass = 'watch-small';
-			} else if (width < 1280) {
-				playerYTClass = 'watch-medium';
-			} else {
-				playerYTClass = 'watch-large';
-			}
+			this.currentPlayerSize = [width, height];
 
 			// Remove the previous YTPSO class
 			removeClass(this.classRoot, this.previousYTPSOClass);
@@ -442,23 +452,37 @@
 			addClass(this.classRoot, 'ytpso-' + width + 'x' + height);
 			this.previousYTPSOClass = 'ytpso-' + width + 'x' + height;
 
-			// Set #player's class to the closest default YT one for compatibility with e.g. annotations.
-			removeClass(this.player, 'watch-small');
-			removeClass(this.player, 'watch-medium');
-			removeClass(this.player, 'watch-large');
-			addClass(this.player, playerYTClass);
-
 			if (isWide) {
-				removeClass(this.player, 'watch-playlist');
-				addClass(this.player, 'watch-playlist-collapsed');
+				removeClass(this.ytElems.player, 'watch-playlist');
+				addClass(this.ytElems.player, 'watch-playlist-collapsed');
 
-				addClass(this.container, 'watch-wide');
+				addClass(this.ytElems.container, 'watch-wide');
 			} else {
-				removeClass(this.player, 'watch-playlist-collapsed');
-				addClass(this.player, 'watch-playlist');
+				removeClass(this.ytElems.player, 'watch-playlist-collapsed');
+				addClass(this.ytElems.player, 'watch-playlist');
 
-				removeClass(this.container, 'watch-wide');
+				removeClass(this.ytElems.container, 'watch-wide');
 			}
+			
+			this.setPlayerClass();
+		};
+
+		YTPSO.prototype.setPlayerClass = function() {
+			var playerClass = '';
+
+			if (this.currentPlayerSize[0] < 854) {
+				playerClass = 'watch-small';
+			} else if (this.currentPlayerSize[0] < 1280) {
+				playerClass = 'watch-medium';
+			} else {
+				playerClass = 'watch-large';
+			}
+
+			// Set #player's class to the closest default YT one for compatibility with e.g. annotations.
+			removeClass(this.ytElems.player, 'watch-small');
+			removeClass(this.ytElems.player, 'watch-medium');
+			removeClass(this.ytElems.player, 'watch-large');
+			addClass(this.ytElems.player, playerClass);
 		};
 
 		// Create an instance of YTPSO and ask it to handle its initialization timing
