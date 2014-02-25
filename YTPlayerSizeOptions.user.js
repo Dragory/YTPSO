@@ -3,7 +3,8 @@
 // @namespace      http://www.mivir.fi/
 // @description    Adds three options for YouTube's player size: 360p (S), 480p (M) and 720p (L).
 // @include        *://www.youtube.com/*
-// @version        2.5.1
+// @exclude        *://www.youtube.com/embed/*
+// @version        2.5.2
 // @grant          none
 // ==/UserScript==
 
